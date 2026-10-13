@@ -99,6 +99,19 @@ src/data/*.js              racers, mods, abilities, sectors, JUPITER bosses, Zap
 
 `Race` is a pure simulation with no DOM access, so it runs headless in Node for tests and balancing.
 
+## Intro cinematic (Blender)
+
+[`blender/intro_lamp.py`](blender/intro_lamp.py) builds the opening cutscene procedurally: a first-person shot of a living room at night, a flickering brass lamp, the reach, the warning voice, and the glitch into the mirrored void. It needs Blender 4.2 or newer and no external assets.
+
+```bash
+# Build and render to blender/renders/ (MP4, H.264)
+blender --background --python blender/intro_lamp.py -- --render
+# Quick draft at half resolution
+blender --background --python blender/intro_lamp.py -- --render --preview
+```
+
+To edit the scene interactively instead, open the script in Blender's Scripting workspace in a new, empty file and press Run Script. Timing lives in the `BEATS` table at the top of the script.
+
 ## Development
 
 ```bash

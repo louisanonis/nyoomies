@@ -1,3 +1,6 @@
 node_modules/
 .DS_Store
 *.log
+blender/renders/
+blender/*.blend
+blender/*.blend1
