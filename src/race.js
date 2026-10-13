@@ -177,6 +177,7 @@ export class Race {
   update(dt) {
     this.updateParticles(dt);
     if (this.countdown > 0) {
+      this.input.ability = false; // no ability presses buffered through the countdown
       const before = Math.ceil(this.countdown);
       this.countdown -= dt;
       const after = Math.ceil(this.countdown);
@@ -221,6 +222,7 @@ export class Race {
     }
 
     if (!r.alive) {
+      if (r.isPlayer) this.input.ability = false; // don't fire on respawn
       if (r.respawn > 0) {
         r.respawn -= dt;
         if (r.respawn <= 0) this.respawnRacer(r);

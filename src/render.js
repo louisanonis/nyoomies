@@ -11,19 +11,42 @@ export class Renderer {
     this.toasts = [];
     this.shake = 0;
     this.time = 0;
+    this.lowFx = false;
+    this.slowTime = 0;
     this.resize();
     window.addEventListener('resize', () => this.resize());
   }
 
   resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    this.dpr = dpr;
     this.w = window.innerWidth;
     this.h = window.innerHeight;
+    // Cap the backing store: Safari refuses canvases over ~16.7M pixels
+    // (e.g. a 6K display at 2x), and huge canvases tank frame rate anyway.
+    const maxPixels = this.lowFx ? 2.1e6 : 8.3e6;
+    let dpr = Math.min(window.devicePixelRatio || 1, this.lowFx ? 1 : 2);
+    if (this.w * this.h * dpr * dpr > maxPixels) dpr = Math.sqrt(maxPixels / (this.w * this.h));
+    this.dpr = dpr;
     this.canvas.width = Math.floor(this.w * dpr);
     this.canvas.height = Math.floor(this.h * dpr);
     this.canvas.style.width = `${this.w}px`;
     this.canvas.style.height = `${this.h}px`;
+  }
+
+  // Glow is the most expensive effect (software-rendered canvases on Linux,
+  // Firefox); low-effects mode turns it off.
+  glow(px) {
+    return this.lowFx ? 0 : px;
+  }
+
+  // Switch to low effects if a race runs below ~40fps for a few seconds.
+  trackPerformance(dt) {
+    if (this.lowFx || dt <= 0) return;
+    this.slowTime = dt > 1 / 40 ? this.slowTime + dt : Math.max(0, this.slowTime - dt);
+    if (this.slowTime > 3) {
+      this.lowFx = true;
+      this.resize();
+      this.toast('LOW EFFECTS MODE', 'rgba(255,255,255,0.7)');
+    }
   }
 
   toast(text, color = '#ffffff', big = false) {
@@ -96,7 +119,10 @@ export class Renderer {
     for (const r of race.racers) if (r.alive) this.drawRacer(r);
     ctx.restore();
 
-    if (hud) this.drawHud(race, run, dt);
+    if (hud) {
+      this.trackPerformance(dt);
+      this.drawHud(race, run, dt);
+    }
   }
 
   // ---------------------------------------------------------- world layers
@@ -128,7 +154,7 @@ export class Renderer {
     // Arena boundary.
     ctx.strokeStyle = t.theme.wall;
     ctx.shadowColor = t.theme.wall;
-    ctx.shadowBlur = 18;
+    ctx.shadowBlur = this.glow(18);
     ctx.lineWidth = 6;
     ctx.strokeRect(0, 0, t.w, t.h);
     ctx.shadowBlur = 0;
@@ -212,7 +238,7 @@ export class Renderer {
       for (const [px, py] of [[g.x1, g.y1], [g.x2, g.y2]]) {
         ctx.fillStyle = color;
         ctx.shadowColor = color;
-        ctx.shadowBlur = isNext ? 20 : 8;
+        ctx.shadowBlur = this.glow(isNext ? 20 : 8);
         ctx.beginPath();
         ctx.arc(px, py, isNext ? 9 : 6, 0, TAU);
         ctx.fill();
@@ -246,7 +272,7 @@ export class Renderer {
       ctx.translate(p.x, p.y + bob);
       ctx.rotate(p.spin);
       ctx.shadowColor = '#ffffff';
-      ctx.shadowBlur = 14;
+      ctx.shadowBlur = this.glow(14);
       ctx.strokeStyle = '#ffffff';
       ctx.fillStyle = 'rgba(255,255,255,0.15)';
       ctx.lineWidth = 2;
@@ -346,7 +372,7 @@ export class Renderer {
     ctx.rotate(m.angle);
     ctx.fillStyle = '#ff6b6b';
     ctx.shadowColor = '#ff6b6b';
-    ctx.shadowBlur = 16;
+    ctx.shadowBlur = this.glow(16);
     ctx.beginPath();
     ctx.moveTo(10, 0);
     ctx.lineTo(-6, -5);
@@ -373,7 +399,7 @@ export class Renderer {
     if (flame) {
       ctx.fillStyle = '#ffffff';
       ctx.shadowColor = r.color;
-      ctx.shadowBlur = 20;
+      ctx.shadowBlur = this.glow(20);
       const len = rad * (1.8 + Math.random() * 1.2);
       ctx.beginPath();
       ctx.moveTo(-rad * 0.9, -rad * 0.35);
@@ -383,7 +409,7 @@ export class Renderer {
     }
 
     ctx.shadowColor = r.color;
-    ctx.shadowBlur = 16;
+    ctx.shadowBlur = this.glow(16);
     ctx.fillStyle = r.color;
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 1.5;
@@ -675,7 +701,7 @@ export function drawShape(ctx, shape, rad, time = 0) {
       ctx.restore();
       for (const s of [-1, 1]) {
         ctx.beginPath();
-        ctx.roundRect(ex - rad * 0.9, s * ey - rad * 0.28, rad * 1.5, rad * 0.56, rad * 0.25);
+        roundRect(ctx, ex - rad * 0.9, s * ey - rad * 0.28, rad * 1.5, rad * 0.56, rad * 0.25);
         ctx.fill();
         ctx.stroke();
       }
@@ -735,6 +761,21 @@ export function drawShape(ctx, shape, rad, time = 0) {
       ctx.fill();
       break;
   }
+}
+
+// ctx.roundRect only exists in Safari 16+ / Firefox 112+; without it the
+// pod would throw every frame it is drawn.
+function roundRect(ctx, x, y, w, h, r) {
+  if (ctx.roundRect) {
+    ctx.roundRect(x, y, w, h, r);
+    return;
+  }
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }
 
 export function formatTime(t) {

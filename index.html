@@ -12,6 +12,28 @@
 <body>
   <canvas id="game"></canvas>
   <div id="ui"></div>
+  <div id="boot-error" hidden></div>
   <script type="module" src="src/main.js"></script>
+  <script>
+    // Plain-ES5 boot guard: explains a blank screen instead of leaving one.
+    (function () {
+      function fail(html) {
+        var el = document.getElementById('boot-error');
+        el.innerHTML = html;
+        el.hidden = false;
+      }
+      if (location.protocol === 'file:') {
+        fail('<h2>Almost there</h2><p>Browsers block games opened straight from a file. ' +
+          'Run <code>npm start</code> in the game folder and open <b>http://localhost:8080</b>.</p>');
+        return;
+      }
+      setTimeout(function () {
+        if (!window.__nyoomies) {
+          fail('<h2>This browser can\'t run Nyoomies</h2><p>Please update to a recent version of ' +
+            'Chrome, Edge, Firefox or Safari (16 or newer).</p>');
+        }
+      }, 6000);
+    })();
+  </script>
 </body>
 </html>

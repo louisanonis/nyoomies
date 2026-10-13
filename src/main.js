@@ -10,7 +10,7 @@ import { MOD_BY_ID } from './data/mods.js';
 import { ABILITIES } from './data/abilities.js';
 import {
   UI, titleScreen, howToScreen, selectScreen, mapScreen, resultsScreen,
-  draftScreen, shopScreen, eventScreen, endScreen, pauseScreen,
+  draftScreen, shopScreen, eventScreen, endScreen, pauseScreen, keyboardNoticeScreen,
 } from './ui.js';
 
 const canvas = document.getElementById('game');
@@ -145,6 +145,7 @@ function startRace(node) {
   state.race = new Race(cfg);
   renderer.resetCamera(state.race, state.race.player);
   state.mode = 'race';
+  input.setCapturing(true);
   ui.hide();
   audio.unlock();
   audio.startEngine();
@@ -158,6 +159,7 @@ function finishRace() {
   const race = state.race;
   const node = state.node;
   state.mode = 'menu';
+  input.setCapturing(false);
   audio.stopEngine();
   const summary = run.applyRaceResult(node, race.result);
   if (summary.dead) audio.play('bad');
@@ -253,6 +255,7 @@ function endRun() {
   const run = state.run;
   run.over = true;
   state.mode = 'menu';
+  input.setCapturing(false);
   state.race = null;
   audio.stopEngine();
   const earned = recordRun(state.meta, run);
@@ -262,6 +265,7 @@ function endRun() {
 function pause() {
   if (state.mode !== 'race' || state.race.over) return;
   state.mode = 'paused';
+  input.setCapturing(false);
   audio.setEngine(0, false, false);
   showPause();
 }
@@ -281,6 +285,7 @@ function showPause() {
 function resume() {
   if (state.mode !== 'paused') return;
   state.mode = 'race';
+  input.setCapturing(true);
   ui.hide();
 }
 
@@ -372,13 +377,47 @@ function frame(now) {
 input.on('Escape', () => (state.mode === 'race' ? pause() : resume()));
 input.on('KeyP', () => (state.mode === 'race' ? pause() : resume()));
 input.on('KeyM', () => audio.toggleMute());
+// Pause when the tab is hidden or the window loses focus (Alt-Tab,
+// clicking another window): keys are released then, so the racer would
+// otherwise fly on uncontrolled.
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pause();
 });
+window.addEventListener('blur', pause);
 window.addEventListener('pointerdown', () => audio.unlock(), { once: true });
 
-// Debug hooks for automated smoke tests.
+// Debug hooks for automated smoke tests; also tells the boot guard in
+// index.html that the game started (and clears its message if a slow load
+// tripped it).
 window.__nyoomies = { state, MOD_BY_ID, ABILITIES };
+document.getElementById('boot-error').hidden = true;
 
-goTitle();
+// Touch-only devices (phones, tablets without a trackpad) get a notice
+// first: the game has no touch controls yet.
+function needsKeyboardNotice() {
+  const touch = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+  const finePointer = window.matchMedia?.('(any-pointer: fine)').matches;
+  let dismissed = false;
+  try {
+    dismissed = localStorage.getItem('nyoomies.keyboardOk') === '1';
+  } catch {
+    // Storage blocked: just show the notice each visit.
+  }
+  return touch && !finePointer && !dismissed;
+}
+
+if (needsKeyboardNotice()) {
+  ui.show(keyboardNoticeScreen(), {
+    continue: () => {
+      try {
+        localStorage.setItem('nyoomies.keyboardOk', '1');
+      } catch {
+        // Ignore.
+      }
+      goTitle();
+    },
+  });
+} else {
+  goTitle();
+}
 requestAnimationFrame(frame);

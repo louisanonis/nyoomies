@@ -12,13 +12,24 @@ const DEFAULT = {
 };
 
 export function loadMeta() {
+  const meta = { ...DEFAULT, unlocked: [...DEFAULT.unlocked] };
   try {
     const raw = globalThis.localStorage?.getItem(KEY);
-    if (raw) return { ...DEFAULT, ...JSON.parse(raw) };
+    const saved = raw ? JSON.parse(raw) : null;
+    if (saved && typeof saved === 'object') {
+      // Take only well-formed fields so a corrupted or hand-edited save
+      // can't break the title screen.
+      for (const k of ['data', 'runs', 'wins', 'bestSector', 'totalDerezzes']) {
+        if (Number.isFinite(saved[k]) && saved[k] >= 0) meta[k] = Math.floor(saved[k]);
+      }
+      if (Array.isArray(saved.unlocked)) {
+        meta.unlocked = [...new Set([...DEFAULT.unlocked, ...saved.unlocked.filter((id) => typeof id === 'string')])];
+      }
+    }
   } catch {
-    // Storage unavailable or corrupt: start fresh.
+    // Storage unavailable (private mode, blocked cookies) or corrupt: start fresh.
   }
-  return { ...DEFAULT, unlocked: [...DEFAULT.unlocked] };
+  return meta;
 }
 
 export function saveMeta(meta) {

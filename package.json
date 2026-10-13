@@ -4,9 +4,12 @@
   "description": "Neon roguelike light-cycle racer",
   "type": "module",
   "private": true,
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node scripts/serve.js",
-    "test": "node --test tests/*.test.js",
+    "test": "node --test",
     "sim": "node scripts/sim.js"
   }
 }

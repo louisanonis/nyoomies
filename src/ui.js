@@ -100,6 +100,16 @@ export function titleScreen(meta) {
   </div>`;
 }
 
+export function keyboardNoticeScreen() {
+  return `
+  <div class="panel narrow center">
+    <h2>Keyboard Required</h2>
+    <p class="flavor">Nyoomies is played with a keyboard for now. Open this page on a Mac, Windows or Linux computer — touch controls are coming later.</p>
+    <p class="muted">Using an iPad with a keyboard attached? You're good to go.</p>
+    <div class="menu"><button class="btn primary" data-act="continue">I have a keyboard</button></div>
+  </div>`;
+}
+
 export function howToScreen() {
   return `
   <div class="panel narrow">
