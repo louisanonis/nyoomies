@@ -6,7 +6,7 @@ import { makeAI } from '../src/ai.js';
 
 const runs = Number(process.argv[2] || 10);
 const skill = Number(process.argv[3] || 0.85);
-const chassisList = ['cycle', 'pod'];
+const chassisList = ['glint', 'twinhull'];
 let totalNodes = 0, wins = 0;
 const reach = [0, 0, 0, 0];
 for (let i = 0; i < runs; i++) {

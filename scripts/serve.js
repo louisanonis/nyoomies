@@ -40,5 +40,5 @@ createServer(async (req, res) => {
     res.writeHead(404).end('Not found');
   }
 }).listen(port, () => {
-  console.log(`Nyoomies running at http://localhost:${port}`);
+  console.log(`Hull Bracers running at http://localhost:${port}`);
 });

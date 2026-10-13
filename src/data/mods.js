@@ -1,4 +1,4 @@
-// Run upgrades ("mods"). Drafted after races, bought at the Black Market,
+// Run upgrades ("mods"). Drafted after races, bought at Zaps' Garage,
 // or granted by anomalies. Stackable unless marked unique.
 
 export const RARITY = {
@@ -42,7 +42,7 @@ export const MODS = [
     id: 'longwake',
     name: 'Long Wake',
     rarity: 'common',
-    desc: 'Your light wall is 35% longer. More rivals to catch.',
+    desc: 'Your wake is 35% longer. More rivals to catch.',
     apply: (s) => { s.trailLength *= 1.35; },
   },
   {
@@ -137,7 +137,7 @@ export const MODS = [
     name: 'Razor Wake',
     rarity: 'rare',
     unique: true,
-    desc: 'Rivals derezzed by your wall pay you 20 credits and refill your boost.',
+    desc: 'Rivals shattered by your wake pay you 20 credits and refill your boost.',
     apply: (s) => { s.flags.razorWake = true; },
   },
 
@@ -147,7 +147,7 @@ export const MODS = [
     name: 'Ghost Protocol',
     rarity: 'epic',
     unique: true,
-    desc: 'Your own light wall can no longer hurt you.',
+    desc: 'Your own wake can no longer hurt you.',
     apply: (s) => { s.flags.ownTrailSafe = true; },
   },
   {
@@ -162,7 +162,7 @@ export const MODS = [
     name: 'Jump Jets',
     rarity: 'epic',
     unique: true,
-    desc: 'While boosting with 25+ boost, hop over light walls instead of crashing.',
+    desc: 'While boosting with 25+ boost, hop over wakes instead of crashing.',
     apply: (s) => { s.flags.jumpJets = true; },
   },
   {
@@ -201,7 +201,7 @@ export const MODS = [
     id: 'unstable',
     name: 'Unstable Wake',
     rarity: 'cursed',
-    desc: 'Your light wall is 30% shorter.',
+    desc: 'Your wake is 30% shorter.',
     apply: (s) => { s.trailLength *= 0.7; },
   },
 ];

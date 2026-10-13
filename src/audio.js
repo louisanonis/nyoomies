@@ -108,7 +108,7 @@ export class Audio {
       case 'go': return this.blip(880, 0.35, 'square', 0.15);
       case 'gate': return this.blip(990, 0.07, 'triangle', 0.12, 300);
       case 'lap': this.blip(660, 0.1, 'triangle', 0.15); return setTimeout(() => this.blip(990, 0.15, 'triangle', 0.15), 90);
-      case 'derez': return this.noise(0.6, 0.35, 2500);
+      case 'shatter': return this.noise(0.6, 0.35, 2500);
       case 'kill': return this.blip(300, 0.25, 'sawtooth', 0.12, 600);
       case 'pickup': return this.blip(1200, 0.08, 'sine', 0.15, 500);
       case 'pad': return this.blip(200, 0.2, 'sawtooth', 0.08, 400);

@@ -4,13 +4,15 @@ import { Run, ordinal } from './run.js';
 import { Renderer, drawShape } from './render.js';
 import { Input } from './input.js';
 import { Audio } from './audio.js';
-import { loadMeta, recordRun, unlock } from './meta.js';
+import { loadMeta, recordRun, unlock, saveMeta } from './meta.js';
+import { Nefer } from './nefer.js';
 import { CHASSIS, CHASSIS_BY_ID, chassisStats } from './data/vehicles.js';
 import { MOD_BY_ID } from './data/mods.js';
 import { ABILITIES } from './data/abilities.js';
 import {
   UI, titleScreen, howToScreen, selectScreen, mapScreen, resultsScreen,
   draftScreen, shopScreen, eventScreen, endScreen, pauseScreen, keyboardNoticeScreen,
+  storyScreen, STORY,
 } from './ui.js';
 
 const canvas = document.getElementById('game');
@@ -29,6 +31,7 @@ const state = {
   selected: null,
   seed: randomSeedString(),
 };
+const nefer = new Nefer(document.getElementById('nefer'), state.meta);
 
 // ------------------------------------------------------------ attract demo
 
@@ -56,13 +59,26 @@ function goTitle() {
   state.run = null;
   state.race = null;
   ui.show(titleScreen(state.meta), {
-    newRun: goSelect,
+    newRun: () => (state.meta.storySeen ? goSelect() : goStory(0, goSelect)),
+    story: () => goStory(0, goTitle),
     howTo: () => ui.show(howToScreen(), { back: goTitle }),
   });
 }
 
+function goStory(index, done) {
+  const finish = () => {
+    state.meta.storySeen = true;
+    saveMeta(state.meta);
+    done();
+  };
+  ui.show(storyScreen(index), {
+    next: () => (index + 1 < STORY.length ? goStory(index + 1, done) : finish()),
+    skip: finish,
+  });
+}
+
 function goSelect() {
-  if (!state.selected || !state.meta.unlocked.includes(state.selected)) state.selected = 'cycle';
+  if (!state.selected || !state.meta.unlocked.includes(state.selected)) state.selected = 'glint';
   ui.show(selectScreen(state.meta, state.selected, state.seed), {
     pick: (id) => { state.selected = id; readSeed(); goSelect(); },
     unlock: (id) => {
@@ -120,14 +136,17 @@ function startRun() {
 }
 
 function goMap() {
+  nefer.flush();
   state.mode = 'menu';
   const run = state.run;
   ui.show(mapScreen(run), {
     enter: (i) => enterNode(run.currentChoices()[Number(i)]),
     abandon: () => {
-      if (confirm('Abandon this run? Progress earns Data as if you were derezzed.')) endRun();
+      if (confirm('Abandon this run? You still earn Mirror Shards as if you had shattered.')) endRun();
     },
   });
+  nefer.tip('map');
+  if (run.hull <= 3) nefer.tip('hullLow');
 }
 
 function enterNode(node) {
@@ -149,9 +168,13 @@ function startRace(node) {
   ui.hide();
   audio.unlock();
   audio.startEngine();
-  if (node.type === 'boss') renderer.toast(`BOSS: ${state.race.sectorDef.boss.name}`, state.race.sectorDef.boss.color, true);
+  nefer.flush();
+  const boss = state.race.sectorDef.boss;
+  if (node.type === 'boss') renderer.toast(`JUPITER: ${boss.name}`, boss.color, true);
   else if (node.type === 'elite') renderer.toast('ELITE CIRCUIT', '#ff4f6d', true);
-  else if (node.type === 'arena') renderer.toast('DEREZ ARENA', '#ffb547', true);
+  else if (node.type === 'arena') renderer.toast('SHATTER PIT', '#ffb547', true);
+  nefer.tip(node.type === 'boss' ? 'boss' : node.type === 'arena' ? 'arena' : 'race');
+  if (state.race.ally) nefer.tip('ally');
 }
 
 function finishRace() {
@@ -161,8 +184,10 @@ function finishRace() {
   state.mode = 'menu';
   input.setCapturing(false);
   audio.stopEngine();
+  nefer.flush();
   const summary = run.applyRaceResult(node, race.result);
   if (summary.dead) audio.play('bad');
+  if (summary.damage && node.type !== 'boss') nefer.tip('podium');
   ui.show(resultsScreen(run, node, race.result, summary), {
     continue: () => {
       if (summary.dead) return endRun();
@@ -180,8 +205,10 @@ function afterNode(node, summary = {}) {
 }
 
 function goDraft(options, done) {
+  nefer.flush();
   const run = state.run;
   const skip = 15;
+  nefer.tip('draft');
   ui.show(draftScreen(run, options, skip), {
     take: (id) => {
       run.addMod(id);
@@ -196,8 +223,10 @@ function goDraft(options, done) {
 }
 
 function goShop(shop) {
+  nefer.flush();
   const run = state.run;
   const refresh = () => goShop(shop);
+  nefer.tip('shop');
   ui.show(shopScreen(run, shop), {
     buyMod: (i) => {
       const item = shop.mods[Number(i)];
@@ -237,7 +266,9 @@ function goShop(shop) {
 }
 
 function goEvent(event, outcome) {
+  nefer.flush();
   const run = state.run;
+  nefer.tip('event');
   ui.show(eventScreen(run, event, outcome), {
     choose: (i) => {
       const res = run.resolveEvent(event.choices[Number(i)].effect);
@@ -300,15 +331,19 @@ function handleRaceEvents(race) {
         if (e.lap === laps) renderer.toast('FINAL LAP', '#ffffff', true);
         else if (e.lap < laps) renderer.toast(`LAP ${e.lap}`, '#ffffff');
         break;
-      case 'derez':
-        if (e.isPlayer) renderer.shake = 22;
+      case 'shatter':
+        if (e.isPlayer) {
+          renderer.shake = 22;
+          nefer.tip('crash');
+        }
         else if (Math.hypot(e.x - race.player.x, e.y - race.player.y) < 500) renderer.shake = Math.max(renderer.shake, 6);
         break;
       case 'kill':
-        renderer.toast(`DEREZZED ${e.name}${e.bonus ? ` +${e.bonus}¢` : ''}`, '#ffb547');
+        renderer.toast(`SHATTERED ${e.name}${e.bonus ? ` +${e.bonus}¢` : ''}`, '#ffb547');
         break;
       case 'pickup':
         renderer.toast(e.label, '#ffffff');
+        nefer.tip('pickup');
         break;
       case 'shield':
         renderer.toast('SHIELD ABSORBED', '#ffffff');
@@ -324,7 +359,7 @@ function handleRaceEvents(race) {
         break;
       case 'over':
         if (e.reason === 'dead') renderer.toast('HULL BREACH', '#ff4f6d', true);
-        else if (e.reason === 'cleared') renderer.toast('ARENA CLEARED', '#5ff4ff', true);
+        else if (e.reason === 'cleared') renderer.toast('PIT CLEARED', '#5ff4ff', true);
         else if (e.reason === 'survived') renderer.toast('TIME — SURVIVED', '#5ff4ff', true);
         break;
       default:
@@ -353,6 +388,8 @@ function frame(now) {
     }
     handleRaceEvents(race);
     const p = race.player;
+    if (p.grind > 0.6) nefer.tip('grind');
+    if (race.time > 8 && p.abilityCharges === p.abilityMaxCharges) nefer.tip('ability');
     audio.setEngine(p.speed, p.boosting, p.alive && !race.over);
     renderer.render(race, dt, { focus: p, run: state.run });
     if (race.over && race.overTimer > 2.2) finishRace();
@@ -389,7 +426,7 @@ window.addEventListener('pointerdown', () => audio.unlock(), { once: true });
 // Debug hooks for automated smoke tests; also tells the boot guard in
 // index.html that the game started (and clears its message if a slow load
 // tripped it).
-window.__nyoomies = { state, MOD_BY_ID, ABILITIES };
+window.__hullBracers = { state, MOD_BY_ID, ABILITIES };
 document.getElementById('boot-error').hidden = true;
 
 // Touch-only devices (phones, tablets without a trackpad) get a notice
@@ -399,7 +436,7 @@ function needsKeyboardNotice() {
   const finePointer = window.matchMedia?.('(any-pointer: fine)').matches;
   let dismissed = false;
   try {
-    dismissed = localStorage.getItem('nyoomies.keyboardOk') === '1';
+    dismissed = localStorage.getItem('hullbracers.keyboardOk') === '1';
   } catch {
     // Storage blocked: just show the notice each visit.
   }
@@ -410,7 +447,7 @@ if (needsKeyboardNotice()) {
   ui.show(keyboardNoticeScreen(), {
     continue: () => {
       try {
-        localStorage.setItem('nyoomies.keyboardOk', '1');
+        localStorage.setItem('hullbracers.keyboardOk', '1');
       } catch {
         // Ignore.
       }

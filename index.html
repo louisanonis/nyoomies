@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Nyoomies</title>
-  <meta name="description" content="Roguelike light-cycle racing on a hostile neon grid.">
+  <title>Hull Bracers</title>
+  <meta name="description" content="Race your way out of a mirrored neon underground. A roguelike racer.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
@@ -12,6 +12,7 @@
 <body>
   <canvas id="game"></canvas>
   <div id="ui"></div>
+  <div id="nefer" role="status" aria-live="polite"></div>
   <div id="boot-error" hidden></div>
   <script type="module" src="src/main.js"></script>
   <script>
@@ -28,8 +29,8 @@
         return;
       }
       setTimeout(function () {
-        if (!window.__nyoomies) {
-          fail('<h2>This browser can\'t run Nyoomies</h2><p>Please update to a recent version of ' +
+        if (!window.__hullBracers) {
+          fail('<h2>This browser can\'t run Hull Bracers</h2><p>Please update to a recent version of ' +
             'Chrome, Edge, Firefox or Safari (16 or newer).</p>');
         }
       }, 6000);

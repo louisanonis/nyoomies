@@ -85,17 +85,44 @@ function statBar(label, value, min, max) {
 export function titleScreen(meta) {
   return `
   <div class="title-wrap">
-    <h1 class="logo">NYOOMIES</h1>
-    <div class="tagline">Roguelike light-cycle racing on a hostile grid</div>
+    <h1 class="logo">HULL BRACERS</h1>
+    <div class="tagline">Race your way out of the underground</div>
     <div class="menu">
       <button class="btn primary" data-act="newRun">New Run</button>
+      <button class="btn" data-act="story">Story</button>
       <button class="btn" data-act="howTo">How to Play</button>
     </div>
     <div class="meta-line">
-      <span>◆ ${meta.data} DATA</span>
+      <span>◆ ${meta.shards} SHARDS</span>
       <span>RUNS ${meta.runs}</span>
-      <span>WINS ${meta.wins}</span>
+      <span>ESCAPES ${meta.wins}</span>
       <span>BEST SECTOR ${Math.min(meta.bestSector + 1, SECTORS.length)}${meta.wins ? ' ✓' : ''}</span>
+    </div>
+  </div>`;
+}
+
+// Intro story, narrated in part by Nefer. Shown before the first run and
+// from the title screen.
+export const STORY = [
+  { text: 'You open your eyes to a black void. White and blue neon paint a skyline that shouldn\'t exist — every tower a mirror image of somewhere you used to know.' },
+  { text: 'You have no idea how you got here. You only know one thing: you have to get out.' },
+  { speaker: 'NEFER', text: 'Something small and cold coils around your wrist — a robot shaped like a snake. "Easy. I\'m Nefer, your bracer. No bracer, no racing. No racing, no way out of the underground."' },
+  { speaker: 'NEFER', text: '"See the red lights? JUPITER. Police, technically. They think you\'re a parolee who skipped out on his sentence. You\'re not him. Your crime is worse — you don\'t belong in this world at all."' },
+  { speaker: 'NEFER', text: '"The races are the only road up. Win, climb, stay out of every wake. What\'s on the surface? Nobody down here knows. Let\'s find out."' },
+];
+
+export function storyScreen(index) {
+  const panel = STORY[index];
+  const last = index === STORY.length - 1;
+  const dots = STORY.map((_, i) => `<i class="${i === index ? 'on' : ''}"></i>`).join('');
+  return `
+  <div class="panel narrow story">
+    ${panel.speaker ? `<div class="speaker">${panel.speaker}</div>` : ''}
+    <p class="flavor">${esc(panel.text)}</p>
+    <div class="story-dots">${dots}</div>
+    <div class="menu">
+      ${last ? '' : '<button class="btn" data-act="skip">Skip</button>'}
+      <button class="btn primary" data-act="next">${last ? 'Start' : 'Next'}</button>
     </div>
   </div>`;
 }
@@ -104,7 +131,7 @@ export function keyboardNoticeScreen() {
   return `
   <div class="panel narrow center">
     <h2>Keyboard Required</h2>
-    <p class="flavor">Nyoomies is played with a keyboard for now. Open this page on a Mac, Windows or Linux computer — touch controls are coming later.</p>
+    <p class="flavor">Hull Bracers is played with a keyboard for now. Open this page on a Mac, Windows or Linux computer — touch controls are coming later.</p>
     <p class="muted">Using an iPad with a keyboard attached? You're good to go.</p>
     <div class="menu"><button class="btn primary" data-act="continue">I have a keyboard</button></div>
   </div>`;
@@ -122,15 +149,16 @@ export function howToScreen() {
       <div><kbd>E</kbd><span>Use your ability</span></div>
       <div><kbd>Esc</kbd><span>Pause</span> <kbd>M</kbd><span>Mute</span></div>
     </div>
-    <h3>The Grid</h3>
+    <h3>The Underground</h3>
     <ul class="rules">
-      <li>Every racer leaves a <b>lethal light wall</b>. Touch one — anyone's, even your own — and you <b>derez</b>, costing <b>1 hull</b>. Your emergency shield absorbs the first crash each race.</li>
-      <li><b>Wake grinding:</b> ride close alongside walls and obstacles to recharge boost and gain speed. The closer, the better — and the deadlier.</li>
+      <li>Every racer drags a <b>lethal neon wake</b>. Touch one — anyone's, even your own — and your racer <b>shatters</b>, costing <b>1 hull</b>. Your emergency shield absorbs the first crash each race.</li>
+      <li><b>Wake grinding:</b> ride close alongside wakes and walls to recharge boost and gain speed. The closer, the better — and the deadlier.</li>
       <li>Circuits: pass every <b>gate</b> in order for 3 laps. Finish on the podium or take 2 hull damage.</li>
-      <li>Derez Arenas: no gates. Survive 60 seconds and cut rivals off with your wall for bounties.</li>
+      <li>Shatter Pits: no gates. Survive 60 seconds and cut parolees off with your wake for bounties.</li>
+      <li><b>Zaps</b> sometimes races with you. Their wake can't hurt you, and they don't count against your placing.</li>
       <li><b>?</b> cubes give boost, credits, overdrive or repairs. Green chevrons are boost pads.</li>
-      <li>Hull carries across the whole run (your pit crew patches 2 after each race). Reach 0 and the run is over. Beat 3 sector bosses to win.</li>
-      <li>Runs earn <b>◆ Data</b> that unlocks new chassis.</li>
+      <li>Hull carries across the whole run (patched 2 after each race). Reach 0 and the run is over. Beat the three JUPITER officers to reach the surface.</li>
+      <li>Runs earn <b>◆ Mirror Shards</b> that unlock new racers.</li>
     </ul>
     <div class="menu"><button class="btn primary" data-act="back">Back</button></div>
   </div>`;
@@ -144,7 +172,7 @@ export function selectScreen(meta, selected, seed) {
     const sel = selected === c.id;
     const action = unlocked
       ? `data-act="pick" data-arg="${c.id}"`
-      : meta.data >= c.cost ? `data-act="unlock" data-arg="${c.id}"` : '';
+      : meta.shards >= c.cost ? `data-act="unlock" data-arg="${c.id}"` : '';
     return `<button class="card chassis-card ${sel ? 'selected' : ''} ${unlocked ? '' : 'locked'}" style="--c:${c.color}" ${action}>
       <canvas class="ship-preview" data-shape="${c.shape}" data-color="${c.color}" width="160" height="80"></canvas>
       <h3>${esc(c.name)}</h3>
@@ -153,15 +181,15 @@ export function selectScreen(meta, selected, seed) {
       ${statBar('Handling', s.turnRate, 2.2, 4.4)}
       ${statBar('Hull', s.maxHull, 5, 15)}
       ${statBar('Boost', s.boostMax * (1 + s.boostPower), 100, 230)}
-      ${statBar('Wall', s.trailLength, 700, 2100)}
+      ${statBar('Wake', s.trailLength, 700, 2100)}
       <div class="trait">${esc(c.trait)}</div>
       <div class="ability-line">${ab.icon} ${esc(ab.name)}<span class="small muted"> — ${esc(ab.desc)}</span></div>
-      ${unlocked ? '' : `<div class="lock">${meta.data >= c.cost ? `UNLOCK FOR ◆ ${c.cost}` : `LOCKED · ◆ ${c.cost}`}</div>`}
+      ${unlocked ? '' : `<div class="lock">${meta.shards >= c.cost ? `UNLOCK FOR ◆ ${c.cost}` : `LOCKED · ◆ ${c.cost}`}</div>`}
     </button>`;
   }).join('');
   return `
   <h2 class="screen-title">Choose Your Ride</h2>
-  <div class="muted center">◆ ${meta.data} Data available</div>
+  <div class="muted center">◆ ${meta.shards} Mirror Shards available</div>
   <div class="chassis-grid">${cards}</div>
   <div class="start-row">
     <label class="seed">Seed <input id="seed-input" maxlength="12" value="${esc(seed)}" spellcheck="false"></label>
@@ -183,6 +211,7 @@ export function mapScreen(run) {
       return `<button class="node node-${node.type} ${cls}" ${act} title="${esc(t.desc)}">
         <span class="icon">${t.icon}</span>
         <span class="label">${esc(label)}</span>
+        ${node.ally ? '<span class="ally-badge">+ ZAPS</span>' : ''}
         ${current ? `<span class="desc">${esc(isBossRow ? `${def.boss.title}. ${t.desc}` : t.desc)}</span>` : ''}
       </button>`;
     }).join('');
@@ -207,21 +236,21 @@ export function mapScreen(run) {
 export function resultsScreen(run, node, result, summary) {
   let title;
   let cls = 'good';
-  if (result.dead) { title = 'DEREZZED'; cls = 'bad'; }
-  else if (node.type === 'arena') title = result.reason === 'cleared' ? 'ARENA CLEARED' : 'SURVIVED';
+  if (result.dead) { title = 'SHATTERED'; cls = 'bad'; }
+  else if (node.type === 'arena') title = result.reason === 'cleared' ? 'PIT CLEARED' : 'SURVIVED';
   else {
     title = `${ordinal(result.place)} PLACE`;
     if (node.type === 'boss' ? result.place !== 1 : result.place > 3) cls = 'bad';
   }
   const rows = result.standings.map((s) => {
     const status = node.type === 'arena'
-      ? (s.isPlayer ? (result.dead ? 'DEREZZED' : 'ALIVE') : s.out ? 'OUT' : 'ALIVE')
-      : s.finished ? formatTime(s.time) : (s.isPlayer && result.dead ? 'DEREZZED' : '—');
+      ? (s.isPlayer ? (result.dead ? 'SHATTERED' : 'ALIVE') : s.out ? 'OUT' : 'ALIVE')
+      : s.finished ? formatTime(s.time) : (s.isPlayer && result.dead ? 'SHATTERED' : '—');
     return `<tr class="${s.isPlayer ? 'me' : ''}">
-      <td>${node.type === 'arena' ? '' : s.place}</td>
-      <td style="color:${s.color}">${s.isBoss ? '♛ ' : ''}${esc(s.isPlayer ? 'YOU' : s.name)}</td>
+      <td>${node.type === 'arena' || s.isAlly ? '' : s.place}</td>
+      <td style="color:${s.color}">${s.isBoss ? '▲ JUPITER · ' : ''}${esc(s.isPlayer ? 'YOU' : s.name)}${s.isAlly ? ' <span class="muted small">ally</span>' : ''}</td>
       <td>${status}</td>
-      <td>${s.derezzes ? `${s.derezzes} ✕` : ''}</td>
+      <td>${s.takedowns ? `${s.takedowns} ✕` : ''}</td>
     </tr>`;
   }).join('');
   const lines = summary.lines.map(([text, c]) => `<li class="${c}">${esc(text)}</li>`).join('');
@@ -265,8 +294,8 @@ export function shopScreen(run, shop) {
   }).join('');
   const full = run.hull >= run.maxHull;
   return `
-  <h2 class="screen-title">Black Market</h2>
-  <div class="muted center">"No refunds. No questions. No warranty."</div>
+  <h2 class="screen-title">Zaps' Garage</h2>
+  <div class="center zaps-line"><b>ZAPS:</b> "${esc(shop.greeting)}"</div>
   <div class="shop-layout">
     <div>
       <h3 class="section">Mods</h3>
@@ -304,23 +333,32 @@ export function eventScreen(run, event, outcome) {
   </div>`;
 }
 
+// Cliffhanger ending for beating the final JUPITER officer.
+const ENDING = `
+  <div class="ending">
+    <p class="flavor">Commander Orrin's cruiser spins out somewhere behind you. The shaft ahead narrows to a hatch — and through its seams, light. Not neon. Something warmer.</p>
+    <p class="flavor">Nefer goes quiet around your wrist.</p>
+    <p class="flavor">Zaps grabs your shoulder. "Whatever's up there... we see it together."</p>
+    <p class="tbc">TO BE CONTINUED</p>
+  </div>`;
+
 export function endScreen(run, earned, meta) {
   const s = run.stats;
   const won = run.won;
   return `
   <div class="panel narrow">
-    <h2 class="result-title ${won ? 'good' : 'bad'}">${won ? 'GRID CHAMPION' : 'END OF LINE'}</h2>
-    <p class="center flavor">${won ? 'All three sectors conquered. The grid bows to you.' : `Derezzed in Sector ${run.sector + 1}: ${esc(SECTORS[run.sector].name)}.`}</p>
+    <h2 class="result-title ${won ? 'good' : 'bad'}">${won ? 'THE SURFACE' : 'SHATTERED'}</h2>
+    ${won ? ENDING : `<p class="center flavor">Your hull gives out in ${esc(SECTORS[run.sector].name)}. JUPITER hauls the wreck back down to the Void — but Nefer is still coiled around your wrist. You'll try again.</p>`}
     <table class="standings stats">
-      <tr><td>Chassis</td><td>${esc(run.chassis.name)}</td></tr>
+      <tr><td>Racer</td><td>${esc(run.chassis.name)}</td></tr>
       <tr><td>Nodes cleared</td><td>${s.nodes}</td></tr>
       <tr><td>Races / podiums / wins</td><td>${s.races} / ${s.podiums} / ${s.wins}</td></tr>
-      <tr><td>Bosses defeated</td><td>${s.bosses}</td></tr>
-      <tr><td>Rivals derezzed</td><td>${s.derezzes}</td></tr>
+      <tr><td>JUPITER officers beaten</td><td>${s.bosses}</td></tr>
+      <tr><td>Rivals shattered</td><td>${s.takedowns}</td></tr>
       <tr><td>Mods installed</td><td>${run.mods.length}</td></tr>
       <tr><td>Seed</td><td>${esc(run.seedString)}</td></tr>
     </table>
-    <div class="earned">+ ◆ ${earned} DATA <span class="muted">(total ${meta.data})</span></div>
+    <div class="earned">+ ◆ ${earned} MIRROR SHARDS <span class="muted">(total ${meta.shards})</span></div>
     <div class="menu"><button class="btn primary" data-act="title">Back to Title</button></div>
   </div>`;
 }

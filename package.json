@@ -1,7 +1,7 @@
 {
-  "name": "nyoomies",
+  "name": "hull-bracers",
   "version": "0.1.0",
-  "description": "Neon roguelike light-cycle racer",
+  "description": "Roguelike neon racer: race your way out of a mirrored underground",
   "type": "module",
   "private": true,
   "engines": {

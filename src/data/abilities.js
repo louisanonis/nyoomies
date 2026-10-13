@@ -17,24 +17,24 @@ export const ABILITIES = {
   },
   missile: {
     id: 'missile',
-    name: 'Derez Missile',
+    name: 'Seeker Spike',
     icon: '➤',
     cooldown: 14,
-    desc: 'Homing missile that derezzes the rival it strikes.',
+    desc: 'Homing spike that shatters the rival it strikes.',
   },
   phase: {
     id: 'phase',
     name: 'Phase Shift',
     icon: '◌',
     cooldown: 11,
-    desc: 'Intangible to light walls for 1.6s.',
+    desc: 'Intangible to wakes for 1.6s.',
   },
   wall: {
     id: 'wall',
     name: 'Barrier Drop',
     icon: '▬',
     cooldown: 9,
-    desc: 'Deploys a wide lethal light barrier behind you for 6s.',
+    desc: 'Deploys a wide lethal neon barrier behind you for 6s.',
   },
   blink: {
     id: 'blink',

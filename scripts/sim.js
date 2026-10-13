@@ -10,7 +10,7 @@ for (const mode of modes) {
     let totalTime = 0, playerCrashes = 0, aiCrashes = 0, places = [], unfinished = 0;
     for (let i = 0; i < races; i++) {
       const rng = new RNG(`sim-${mode}-${sector}-${i}`);
-      const ch = CHASSIS_BY_ID[i % 2 ? 'pod' : 'cycle'];
+      const ch = CHASSIS_BY_ID[i % 2 ? 'twinhull' : 'glint'];
       const stats = chassisStats(ch);
       const race = new Race({
         rng, mode, sector, laps: 3, autopilot: true,

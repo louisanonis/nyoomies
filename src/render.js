@@ -99,7 +99,7 @@ export class Renderer {
       y1: cam.y + this.h / 2 / cam.zoom,
     };
 
-    this.drawGrid(t);
+    this.drawFloor(t);
     this.drawPads(t);
     this.drawGates(race, focus);
     this.drawObstacles(t);
@@ -127,7 +127,7 @@ export class Renderer {
 
   // ---------------------------------------------------------- world layers
 
-  drawGrid(t) {
+  drawFloor(t) {
     const ctx = this.ctx;
     const v = this.view;
     const step = 80;
@@ -137,7 +137,7 @@ export class Renderer {
     const y1 = Math.min(t.h, v.y1);
     ctx.lineWidth = 1 / this.cam.zoom;
     for (const major of [false, true]) {
-      ctx.strokeStyle = major ? t.theme.gridMajor : t.theme.grid;
+      ctx.strokeStyle = major ? t.theme.floorMajor : t.theme.floor;
       ctx.beginPath();
       for (let x = x0; x <= x1; x += step) {
         if ((Math.round(x / step) % 5 === 0) !== major) continue;
@@ -449,7 +449,7 @@ export class Renderer {
       ctx.fillStyle = r.color;
       ctx.globalAlpha = 0.8;
       ctx.textAlign = 'center';
-      ctx.fillText(r.isBoss ? `♛ ${r.name}` : r.name, r.x, r.y - rad - 14);
+      ctx.fillText(r.isBoss ? `▲ JUPITER · ${r.name}` : r.isAlly ? `${r.name} · ALLY` : r.name, r.x, r.y - rad - 14);
       ctx.globalAlpha = 1;
     }
   }
@@ -474,14 +474,14 @@ export class Renderer {
       ctx.fillText(`${Math.max(0, Math.ceil(race.timeLimit - race.time))}s`, 20, 46);
       ctx.font = `600 13px ${FONT}`;
       ctx.fillStyle = theme.accent;
-      ctx.fillText(`RIVALS LEFT ${left}   DEREZZED ${p.derezzes}`, 20, 70);
+      ctx.fillText(`RIVALS LEFT ${left}   SHATTERED ${p.takedowns}`, 20, 70);
     } else {
       const pos = race.playerPosition();
       ctx.font = `800 40px ${FONT}`;
       ctx.fillText(`${pos}`, 20, 52);
       const w = ctx.measureText(`${pos}`).width;
       ctx.font = `700 16px ${FONT}`;
-      ctx.fillText(`/${race.racers.length}`, 24 + w, 52);
+      ctx.fillText(`/${race.rankedRacers().length}`, 24 + w, 52);
       const n = race.track.gates.length;
       const lap = Math.min(race.laps, Math.floor(p.progress / n) + 1);
       ctx.font = `600 13px ${FONT}`;
@@ -578,7 +578,7 @@ export class Renderer {
       ctx.globalAlpha = 1;
       ctx.font = `600 14px ${FONT}`;
       ctx.fillStyle = 'rgba(255,255,255,0.8)';
-      ctx.fillText(race.isArena ? 'SURVIVE 60 SECONDS · DEREZ YOUR RIVALS' : `${race.laps} LAPS · PASS EVERY GATE IN ORDER`, W / 2, H / 2 + 10);
+      ctx.fillText(race.isArena ? 'SURVIVE 60 SECONDS · SHATTER YOUR RIVALS' : `${race.laps} LAPS · PASS EVERY GATE IN ORDER`, W / 2, H / 2 + 10);
     } else if (race.time < 0.8) {
       ctx.font = `900 80px ${FONT}`;
       ctx.fillStyle = '#ffffff';
@@ -589,10 +589,10 @@ export class Renderer {
     if (!p.alive && !race.over) {
       ctx.font = `800 34px ${FONT}`;
       ctx.fillStyle = '#ff4f6d';
-      ctx.fillText('DEREZZED', W / 2, H / 2 - 30);
+      ctx.fillText('SHATTERED', W / 2, H / 2 - 30);
       ctx.font = `600 13px ${FONT}`;
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(`-1 HULL · REZZING IN ${Math.max(0, p.respawn).toFixed(1)}`, W / 2, H / 2);
+      ctx.fillText(`-1 HULL · REFORMING IN ${Math.max(0, p.respawn).toFixed(1)}`, W / 2, H / 2);
     }
 
     let ty = 130;
@@ -675,43 +675,38 @@ export class Renderer {
 // Vehicle silhouettes, drawn facing +x at the racer's position.
 export function drawShape(ctx, shape, rad, time = 0) {
   switch (shape) {
-    case 'pod': {
-      // Two engines ahead of a small cockpit, linked by energy binders.
-      const ex = rad * 1.1;
-      const ey = rad * 0.85;
-      ctx.save();
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = 'rgba(160, 220, 255, 0.9)';
-      ctx.lineWidth = 1.2;
+    case 'twinhull': {
+      // Two long parallel hulls welded under one swept wing, canopy on the
+      // wing's leading edge, engine glow at the rear of each hull.
+      const hy = rad * 0.72;
       ctx.beginPath();
-      const zig = 5;
-      for (let i = 0; i <= zig; i++) {
-        const yy = -ey + (2 * ey * i) / zig;
-        const xx = ex + (i % 2 ? 1 : -1) * (1.5 + Math.sin(time * 40 + i) * 1.5);
-        if (i === 0) ctx.moveTo(xx, yy);
-        else ctx.lineTo(xx, yy);
-      }
+      ctx.moveTo(rad * 0.5, -hy);
+      ctx.lineTo(rad * 0.15, 0);
+      ctx.lineTo(rad * 0.5, hy);
+      ctx.lineTo(-rad * 0.7, hy);
+      ctx.lineTo(-rad * 0.45, 0);
+      ctx.lineTo(-rad * 0.7, -hy);
+      ctx.closePath();
+      ctx.fill();
       ctx.stroke();
-      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-      ctx.beginPath();
-      ctx.moveTo(ex - rad * 0.6, -ey);
-      ctx.lineTo(-rad * 0.6, 0);
-      ctx.lineTo(ex - rad * 0.6, ey);
-      ctx.stroke();
-      ctx.restore();
       for (const s of [-1, 1]) {
         ctx.beginPath();
-        roundRect(ctx, ex - rad * 0.9, s * ey - rad * 0.28, rad * 1.5, rad * 0.56, rad * 0.25);
+        roundRect(ctx, -rad * 1.2, s * hy - rad * 0.24, rad * 2.5, rad * 0.48, rad * 0.2);
         ctx.fill();
         ctx.stroke();
       }
+      ctx.save();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
       ctx.beginPath();
-      ctx.ellipse(-rad * 0.7, 0, rad * 0.5, rad * 0.32, 0, 0, TAU);
+      ctx.ellipse(rad * 0.05, 0, rad * 0.32, rad * 0.2, 0, 0, TAU);
       ctx.fill();
-      ctx.stroke();
+      ctx.fillStyle = `rgba(255,255,255,${0.6 + 0.3 * Math.sin(time * 30)})`;
+      for (const s of [-1, 1]) ctx.fillRect(-rad * 1.3, s * hy - rad * 0.14, rad * 0.18, rad * 0.28);
+      ctx.restore();
       break;
     }
-    case 'interceptor':
+    case 'needle':
       ctx.beginPath();
       ctx.moveTo(rad * 1.8, 0);
       ctx.lineTo(-rad, -rad * 0.9);
@@ -721,7 +716,7 @@ export function drawShape(ctx, shape, rad, time = 0) {
       ctx.fill();
       ctx.stroke();
       break;
-    case 'juggernaut':
+    case 'bulwark':
       ctx.beginPath();
       ctx.moveTo(rad * 1.2, -rad * 0.55);
       ctx.lineTo(rad * 1.2, rad * 0.55);
@@ -735,7 +730,7 @@ export function drawShape(ctx, shape, rad, time = 0) {
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
       ctx.fillRect(-rad * 0.5, -rad * 0.35, rad * 1.1, rad * 0.7);
       break;
-    case 'wraith':
+    case 'echo':
       ctx.beginPath();
       ctx.moveTo(rad * 1.6, 0);
       ctx.quadraticCurveTo(-rad * 0.2, -rad * 0.3, -rad * 1.1, -rad * 1.1);
@@ -744,7 +739,7 @@ export function drawShape(ctx, shape, rad, time = 0) {
       ctx.fill();
       ctx.stroke();
       break;
-    case 'cycle':
+    case 'glint':
     default:
       ctx.beginPath();
       ctx.moveTo(rad * 1.7, 0);

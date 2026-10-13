@@ -2,7 +2,7 @@ import { RNG } from './rng.js';
 import { CHASSIS_BY_ID, chassisStats } from './data/vehicles.js';
 import { MOD_BY_ID, RARITY, applyMods, draftableMods, rollMods } from './data/mods.js';
 import { ABILITY_IDS } from './data/abilities.js';
-import { SECTORS, EVENTS } from './data/sectors.js';
+import { SECTORS, EVENTS, FIRST_EVENT, ZAPS } from './data/sectors.js';
 
 export const ROWS_PER_SECTOR = 4;
 export const PODIUM_DAMAGE = 2;
@@ -26,7 +26,7 @@ export class Run {
     this.seenEvents = [];
     this.over = false;
     this.won = false;
-    this.stats = { races: 0, podiums: 0, wins: 0, derezzes: 0, crashes: 0, bosses: 0, nodes: 0 };
+    this.stats = { races: 0, podiums: 0, wins: 0, takedowns: 0, crashes: 0, bosses: 0, nodes: 0 };
     this.maps = SECTORS.map((_, i) => generateSectorMap(this.rng.fork(), i));
     this.hull = this.computeStats().maxHull;
   }
@@ -92,6 +92,7 @@ export class Run {
       sector: this.sector,
       laps: node.type === 'arena' ? 0 : 3,
       extraSkill: this.row * 0.02,
+      ally: !!node.ally,
       player: {
         stats: this.computeStats(),
         hull: this.hull,
@@ -110,7 +111,7 @@ export class Run {
     this.hull = Math.min(result.hull, this.maxHull);
     if (result.failsafeUsed) this.failsafeUsed = true;
     this.stats.races++;
-    this.stats.derezzes += result.derezzes;
+    this.stats.takedowns += result.takedowns;
     this.stats.crashes += result.hullLost;
 
     if (result.dead) {
@@ -118,7 +119,7 @@ export class Run {
       this.over = true;
       summary.dead = true;
       summary.success = false;
-      summary.lines.push(['Hull integrity lost. You were derezzed.', 'bad']);
+      summary.lines.push(['Hull integrity lost. Your racer shattered.', 'bad']);
       return summary;
     }
 
@@ -134,12 +135,12 @@ export class Run {
     }
 
     if (node.type === 'arena') {
-      const bounty = Math.round(result.derezzes * 18 * s.creditMult);
+      const bounty = Math.round(result.takedowns * 18 * s.creditMult);
       const surviveBonus = Math.round((result.reason === 'cleared' ? 45 : 25) * s.creditMult);
       summary.credits += bounty + surviveBonus;
-      summary.lines.push([`Derezzed ${result.derezzes} rival${result.derezzes === 1 ? '' : 's'}: +${bounty} credits`, 'good']);
-      summary.lines.push([result.reason === 'cleared' ? `Arena cleared: +${surviveBonus}` : `Survived: +${surviveBonus}`, 'good']);
-      summary.draft = { count: 3, bias: 0.15 + result.derezzes * 0.08 };
+      summary.lines.push([`Shattered ${result.takedowns} rival${result.takedowns === 1 ? '' : 's'}: +${bounty} credits`, 'good']);
+      summary.lines.push([result.reason === 'cleared' ? `Pit cleared: +${surviveBonus}` : `Survived: +${surviveBonus}`, 'good']);
+      summary.draft = { count: 3, bias: 0.15 + result.takedowns * 0.08 };
     } else {
       const place = result.place;
       const base = PLACE_CREDITS[place - 1] || 0;
@@ -153,7 +154,7 @@ export class Run {
       if (node.type === 'boss') {
         if (place === 1) {
           this.stats.bosses++;
-          summary.lines.push([`${SECTORS[this.sector].boss.name} defeated!`, 'good']);
+          summary.lines.push([`${SECTORS[this.sector].boss.name} left in your wake!`, 'good']);
           summary.lines.push(['Sector escape: hull repaired by 4', 'good']);
           this.repair(4);
           summary.draft = { count: 3, bias: 0.9 };
@@ -222,6 +223,7 @@ export class Run {
     return {
       mods,
       abilities: otherAbilities.map((id) => ({ kind: 'ability', id, price: 55, sold: false })),
+      greeting: this.rng.pick(ZAPS.greetings),
       repairPrice: 25 + this.sector * 5,
       rerollPrice: 15,
     };
@@ -230,6 +232,10 @@ export class Run {
   // ---------------------------------------------------------------- events
 
   rollEvent() {
+    if (!this.seenEvents.includes(FIRST_EVENT)) {
+      this.seenEvents.push(FIRST_EVENT);
+      return EVENTS.find((e) => e.id === FIRST_EVENT);
+    }
     const fresh = EVENTS.filter((e) => !this.seenEvents.includes(e.id));
     const event = this.rng.pick(fresh.length ? fresh : EVENTS);
     this.seenEvents.push(event.id);
@@ -297,10 +303,10 @@ export class Run {
     return { ok: true, log };
   }
 
-  // Meta currency earned when the run ends.
-  dataEarned() {
+  // Mirror shards (meta currency) earned when the run ends.
+  shardsEarned() {
     const st = this.stats;
-    return st.nodes * 2 + st.bosses * 15 + st.podiums * 2 + st.derezzes + (this.won ? 40 : 0);
+    return st.nodes * 2 + st.bosses * 15 + st.podiums * 2 + st.takedowns + (this.won ? 40 : 0);
   }
 }
 
@@ -321,9 +327,11 @@ export function generateSectorMap(rng, sector) {
       // A shop is always reachable right before the boss.
       if (r === ROWS_PER_SECTOR - 1 && !types.includes('shop')) types[types.length - 1] = 'shop';
     }
-    rows.push(types.map((type) => ({ type, done: false })));
+    // Zaps rides along in some circuits.
+    rows.push(types.map((type) => ({ type, done: false, ally: type === 'race' && rng.chance(0.3) })));
   }
-  rows.push([{ type: 'boss', done: false }]);
+  // ...and always backs you up against JUPITER.
+  rows.push([{ type: 'boss', done: false, ally: true }]);
   return rows;
 }
 

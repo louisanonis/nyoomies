@@ -3,7 +3,7 @@ import {
   rayBounds, pointRectDist, circleRect,
 } from './geometry.js';
 import { generateTrack } from './track.js';
-import { SECTORS, RIVAL_NAMES, RIVAL_COLORS } from './data/sectors.js';
+import { SECTORS, RIVAL_NAMES, RIVAL_COLORS, ZAPS } from './data/sectors.js';
 import { CHASSIS, CHASSIS_BY_ID, chassisStats } from './data/vehicles.js';
 import { ABILITIES } from './data/abilities.js';
 import { makeAI, aiThink } from './ai.js';
@@ -92,7 +92,20 @@ export class Race {
     const elite = this.mode === 'elite';
     const skill = clamp(def.aiSkill + (elite ? 0.14 : 0) + (cfg.extraSkill || 0), 0.2, 0.98);
     const speed = def.aiSpeed + (elite ? 0.05 : 0);
-    let rivalCount = this.mode === 'boss' ? 3 : 5;
+    const withAlly = !!cfg.ally && !this.isArena;
+    let rivalCount = (this.mode === 'boss' ? 3 : 5) - (withAlly && this.mode !== 'boss' ? 1 : 0);
+
+    // Zaps: friendly racer. Their wake can't hurt you (and yours can't hurt
+    // them), but it's as lethal as anyone's to rivals and JUPITER.
+    if (withAlly) {
+      const base = CHASSIS.find((c) => c.shape === ZAPS.shape) || CHASSIS[0];
+      const stats = chassisStats(base);
+      stats.topSpeed *= def.aiSpeed + 0.04;
+      stats.accel *= def.aiSpeed + 0.04;
+      const ally = this.makeRacer({ name: ZAPS.name, color: ZAPS.color, shape: ZAPS.shape, stats, abilityId: base.ability, isAlly: true });
+      ally.ai = makeAI(this.rng, clamp(skill + 0.1, 0.3, 0.95));
+      this.ally = ally;
+    }
 
     if (this.mode === 'boss') {
       const b = def.boss;
@@ -109,7 +122,7 @@ export class Race {
       this.boss = boss;
     }
 
-    const pool = CHASSIS.filter((c) => c.id !== 'wraith' || this.sector > 0);
+    const pool = CHASSIS.filter((c) => c.id !== 'echo' || this.sector > 0);
     for (let i = 0; i < rivalCount; i++) {
       const base = this.rng.pick(pool);
       const stats = chassisStats(base);
@@ -128,23 +141,23 @@ export class Race {
       rivals.push(r);
     }
 
-    const all = [player, ...rivals];
+    const all = [player, ...(this.ally ? [this.ally] : []), ...rivals];
     all.forEach((r, i) => {
       r.index = i;
       const s = spawns[i % spawns.length];
       r.x = r.prevX = s.x;
       r.y = r.prevY = s.y;
       r.angle = s.angle;
-      r.fx.noTrail = 1.2; // launch grace: nobody leaves a wall for the first moment
+      r.fx.noTrail = 1.2; // launch grace: nobody leaves a wake for the first moment
     });
     this.racers = all;
   }
 
-  makeRacer({ name, color, shape, stats, abilityId, isPlayer = false, isBoss = false }) {
+  makeRacer({ name, color, shape, stats, abilityId, isPlayer = false, isBoss = false, isAlly = false }) {
     const charges = stats.flags.abilityCharges || 1;
     return {
       index: 0,
-      name, color, shape, stats, abilityId, isPlayer, isBoss,
+      name, color, shape, stats, abilityId, isPlayer, isBoss, isAlly,
       ai: null,
       x: 0, y: 0, prevX: 0, prevY: 0, angle: 0, speed: 0,
       trail: [], trailLen: 0,
@@ -165,7 +178,7 @@ export class Race {
       finished: false,
       finishTime: 0,
       place: 0,
-      derezzes: 0,
+      takedowns: 0,
       crashes: 0,
       onPad: false,
       ctl: { turn: 0, throttle: 0, boost: false, ability: false },
@@ -272,7 +285,7 @@ export class Race {
       if (!r.alive) return;
     }
 
-    // --- light walls (+ measure how close we are for grinding)
+    // --- wakes (+ measure how close we are for grinding)
     this.collideWalls(r, dt);
     if (!r.alive) return;
 
@@ -335,8 +348,13 @@ export class Race {
     for (const b of this.barriers) S.push(b.x1, b.y1, b.x2, b.y2, b.owner, 0, 1);
   }
 
+  // The player and Zaps are on the same side.
+  friendly(a, b) {
+    return a !== b && (a.isPlayer || a.isAlly) && (b.isPlayer || b.isAlly);
+  }
+
   ignoresSeg(r, owner, recent, kind) {
-    if (owner !== r.index) return false;
+    if (owner !== r.index) return this.friendly(r, this.racers[owner]);
     if (kind === 1) return true;
     return recent === 1 || !!r.stats.flags.ownTrailSafe;
   }
@@ -464,7 +482,7 @@ export class Race {
 
   // ------------------------------------------------------- crash / respawn
 
-  // Returns true if the racer was derezzed (false if a shield/invuln saved it).
+  // Returns true if the racer was shattered (false if a shield/invuln saved it).
   crash(r, cause, byIndex) {
     if (r.fx.invuln > 0) return false;
     if (r.shields > 0) {
@@ -481,11 +499,11 @@ export class Race {
     if (r.trail.length > 1) this.fading.push({ points: r.trail, color: r.color, life: 0.8, max: 0.8 });
     r.trail = [];
     r.trailLen = 0;
-    this.emit('derez', { name: r.name, isPlayer: r.isPlayer, x: r.x, y: r.y });
+    this.emit('shatter', { name: r.name, isPlayer: r.isPlayer, x: r.x, y: r.y });
 
     if (byIndex !== null && byIndex !== r.index) {
       const killer = this.racers[byIndex];
-      killer.derezzes++;
+      killer.takedowns++;
       if (killer.isPlayer) {
         let bonus = 0;
         if (killer.stats.flags.razorWake) {
@@ -599,7 +617,7 @@ export class Race {
         const rad = 280 * p;
         this.rings.push({ x: r.x, y: r.y, r: 10, max: rad, life: 0.5, maxLife: 0.5, color: r.color });
         for (const o of this.racers) {
-          if (o === r || !o.alive) continue;
+          if (o === r || !o.alive || this.friendly(r, o)) continue;
           if (distSq(o.x, o.y, r.x, r.y) < rad * rad) {
             o.fx.slow = 2 * p;
             o.boost = 0;
@@ -612,7 +630,7 @@ export class Race {
         let target = null;
         let best = Infinity;
         for (const o of this.racers) {
-          if (o === r || !o.alive) continue;
+          if (o === r || !o.alive || this.friendly(r, o)) continue;
           const dx = o.x - r.x, dy = o.y - r.y;
           const d = Math.hypot(dx, dy);
           const ahead = (dx * cos + dy * sin) / (d || 1);
@@ -681,7 +699,7 @@ export class Race {
         continue;
       }
       for (const o of this.racers) {
-        if (o.index === m.owner || !o.alive) continue;
+        if (o.index === m.owner || !o.alive || this.friendly(this.racers[m.owner], o)) continue;
         if (distSq(o.x, o.y, m.x, m.y) < (o.stats.radius + 8) ** 2) {
           m.ttl = 0;
           this.sparks(m.x, m.y, '#ff6b6b', 20);
@@ -811,8 +829,13 @@ export class Race {
     });
   }
 
+  // Zaps races alongside you and doesn't count toward your placing.
+  rankedRacers() {
+    return this.standings().filter((r) => !r.isAlly);
+  }
+
   playerPosition() {
-    return this.standings().indexOf(this.player) + 1;
+    return this.rankedRacers().indexOf(this.player) + 1;
   }
 
   endRace(reason) {
@@ -820,13 +843,14 @@ export class Race {
     this.over = true;
     this.overTimer = 0;
     const order = this.standings();
-    const place = order.indexOf(this.player) + 1;
+    const ranked = order.filter((r) => !r.isAlly);
+    const place = ranked.indexOf(this.player) + 1;
     this.result = {
       reason,
       mode: this.mode,
       dead: reason === 'dead',
       place: this.isArena ? 0 : place,
-      derezzes: this.player.derezzes,
+      takedowns: this.player.takedowns,
       rivalsLeft: this.racers.filter((r) => !r.isPlayer && !r.out).length,
       creditsEarned: this.creditsEarned,
       hull: this.playerHull,
@@ -834,15 +858,16 @@ export class Race {
       hullRepaired: this.hullRepaired,
       failsafeUsed: this.failsafeUsed,
       time: this.time,
-      standings: order.map((r, i) => ({
+      standings: order.map((r) => ({
         name: r.name,
         color: r.color,
-        place: i + 1,
+        place: r.isAlly ? 0 : ranked.indexOf(r) + 1,
         isPlayer: r.isPlayer,
         isBoss: r.isBoss,
+        isAlly: r.isAlly,
         finished: r.finished,
         time: r.finishTime,
-        derezzes: r.derezzes,
+        takedowns: r.takedowns,
         out: r.out,
       })),
     };

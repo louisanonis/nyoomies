@@ -2,7 +2,7 @@
 //
 // topSpeed / accel: px/s and px/s^2     turnRate: rad/s
 // boostPower: extra speed fraction while boosting
-// trailLength: length of the lethal light wall left behind (px)
+// trailLength: length of the lethal neon wake left behind (px)
 // slipstream: multiplier on boost/speed gained by grinding near walls
 // shieldsPerRace: crashes absorbed per race without hull damage (everyone
 //   gets one emergency shield)
@@ -27,22 +27,22 @@ export const BASE_STATS = {
 
 export const CHASSIS = [
   {
-    id: 'cycle',
-    name: 'Light Cycle',
-    shape: 'cycle',
+    id: 'glint',
+    name: 'Glint',
+    shape: 'glint',
     color: '#5ff4ff',
-    tagline: 'The classic grid runner. Balanced, precise, and at home in the wake.',
-    trait: 'Grid Runner — wake grinding yields 60% more boost and speed.',
+    tagline: 'A sliver of mirror-glass on a thrust spine. Balanced, precise, at home in the wake.',
+    trait: 'Wake Rider — wake grinding yields 60% more boost and speed.',
     ability: 'turbo',
     cost: 0,
     stats: { slipstream: 1.6 },
   },
   {
-    id: 'pod',
-    name: 'Twin-Engine Pod',
-    shape: 'pod',
+    id: 'twinhull',
+    name: 'Twinhull',
+    shape: 'twinhull',
     color: '#ffd166',
-    tagline: 'Two monstrous engines towing a tiny cockpit. Blistering speed, steers like a freighter.',
+    tagline: 'Two cargo hulls welded under one wing. Blistering top speed, steers like a freighter.',
     trait: 'Afterburners — bigger boost tank and 35% stronger boost.',
     ability: 'emp',
     cost: 0,
@@ -59,11 +59,11 @@ export const CHASSIS = [
     },
   },
   {
-    id: 'interceptor',
-    name: 'Interceptor',
-    shape: 'interceptor',
+    id: 'needle',
+    name: 'Needle',
+    shape: 'needle',
     color: '#9dff7a',
-    tagline: 'A needle of a ship. Turns on a dime, folds like paper.',
+    tagline: 'A splinter with an engine. Turns on a dime, folds like paper.',
     trait: 'Hair Trigger — abilities recharge 30% faster.',
     ability: 'missile',
     cost: 40,
@@ -81,11 +81,11 @@ export const CHASSIS = [
     },
   },
   {
-    id: 'juggernaut',
-    name: 'Juggernaut',
-    shape: 'juggernaut',
+    id: 'bulwark',
+    name: 'Bulwark',
+    shape: 'bulwark',
     color: '#ff9f43',
-    tagline: 'Armored hauler converted for blood sport. Leaves a wall a mile long.',
+    tagline: 'A decommissioned JUPITER riot sled. Armored to the teeth, leaves a wake a mile long.',
     trait: 'Reinforced — an extra emergency shield every race.',
     ability: 'wall',
     cost: 60,
@@ -100,12 +100,12 @@ export const CHASSIS = [
     },
   },
   {
-    id: 'wraith',
-    name: 'Wraith',
-    shape: 'wraith',
+    id: 'echo',
+    name: 'Echo',
+    shape: 'echo',
     color: '#d68bff',
-    tagline: 'Experimental phase-drive racer. Nobody is sure it is entirely here.',
-    trait: 'Ethereal — passes harmlessly through its own wake.',
+    tagline: 'Built from the mirror itself. Nobody is sure it is entirely on this side.',
+    trait: 'Reflection — passes harmlessly through its own wake.',
     ability: 'phase',
     cost: 100,
     stats: {

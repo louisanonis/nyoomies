@@ -30,11 +30,11 @@ test('geometry primitives', () => {
 });
 
 test('mods modify stats and respect floors', () => {
-  const base = chassisStats(CHASSIS_BY_ID.cycle);
-  const s = applyMods(chassisStats(CHASSIS_BY_ID.cycle), ['overclock', 'overclock', 'ghost']);
+  const base = chassisStats(CHASSIS_BY_ID.glint);
+  const s = applyMods(chassisStats(CHASSIS_BY_ID.glint), ['overclock', 'overclock', 'ghost']);
   assert.ok(Math.abs(s.topSpeed - base.topSpeed * 1.08 * 1.08) < 1e-6);
   assert.equal(s.flags.ownTrailSafe, true);
-  const glass = applyMods(chassisStats(CHASSIS_BY_ID.interceptor), ['glasscannon', 'glasscannon', 'corrupted']);
+  const glass = applyMods(chassisStats(CHASSIS_BY_ID.needle), ['glasscannon', 'glasscannon', 'corrupted']);
   assert.equal(glass.maxHull, 1);
 });
 
@@ -62,10 +62,10 @@ test('sector maps end in a boss and offer a shop before it', () => {
 });
 
 test('run applies podium damage, rewards and drafts', () => {
-  const run = new Run({ seed: 'T1', chassisId: 'cycle' });
+  const run = new Run({ seed: 'T1', chassisId: 'glint' });
   const node = { type: 'race' };
   const startHull = run.hull;
-  const base = { dead: false, derezzes: 1, creditsEarned: 10, hull: startHull - 1, hullLost: 1, failsafeUsed: false };
+  const base = { dead: false, takedowns: 1, creditsEarned: 10, hull: startHull - 1, hullLost: 1, failsafeUsed: false };
   const s1 = run.applyRaceResult(node, { ...base, place: 5 });
   // -1 from a crash during the race, +2 pit crew (capped at max), -2 for missing the podium.
   assert.equal(run.hull, Math.min(startHull, startHull - 1 + 2) - 2);
@@ -77,9 +77,9 @@ test('run applies podium damage, rewards and drafts', () => {
 });
 
 test('losing the boss forces a retry; beating the last boss wins', () => {
-  const run = new Run({ seed: 'T2', chassisId: 'pod' });
+  const run = new Run({ seed: 'T2', chassisId: 'twinhull' });
   const boss = { type: 'boss' };
-  const res = { dead: false, derezzes: 0, creditsEarned: 0, hullLost: 0, failsafeUsed: false };
+  const res = { dead: false, takedowns: 0, creditsEarned: 0, hullLost: 0, failsafeUsed: false };
   const lose = run.applyRaceResult(boss, { ...res, place: 2, hull: run.hull });
   assert.equal(lose.retryBoss, true);
   run.sector = 2;
@@ -90,7 +90,7 @@ test('losing the boss forces a retry; beating the last boss wins', () => {
 });
 
 test('failsafe saves a run once', () => {
-  const run = new Run({ seed: 'T3', chassisId: 'cycle' });
+  const run = new Run({ seed: 'T3', chassisId: 'glint' });
   run.addMod('failsafe');
   assert.equal(run.damage(999), 'failsafe');
   assert.equal(run.hull, 3);
@@ -101,7 +101,7 @@ test('failsafe saves a run once', () => {
 test('every event choice resolves', () => {
   for (const ev of EVENTS) {
     for (const choice of ev.choices) {
-      const run = new Run({ seed: `E-${ev.id}`, chassisId: 'juggernaut' });
+      const run = new Run({ seed: `E-${ev.id}`, chassisId: 'bulwark' });
       run.credits = 500;
       const res = run.resolveEvent(choice.effect);
       assert.equal(res.ok, true, `${ev.id}: ${choice.label}`);
@@ -114,10 +114,10 @@ test('ordinal suffixes', () => {
   assert.deepEqual([1, 2, 3, 4, 11, 12, 13, 21].map(ordinal), ['1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st']);
 });
 
-function makeRace(mode, mods = [], seed = 'R1') {
-  const run = new Run({ seed, chassisId: 'cycle' });
+function makeRace(mode, mods = [], seed = 'R1', ally = false) {
+  const run = new Run({ seed, chassisId: 'glint' });
   for (const m of mods) run.addMod(m);
-  const cfg = run.raceConfig({ type: mode }, 'cycle', '#5ff4ff');
+  const cfg = run.raceConfig({ type: mode, ally }, 'glint', '#5ff4ff');
   cfg.autopilot = true;
   cfg.player.hull = 999;
   return new Race(cfg);
@@ -146,7 +146,7 @@ test('an arena encounter ends by clear or timeout', () => {
   assert.ok(['cleared', 'survived'].includes(race.result.reason));
 });
 
-test('touching a light wall derezzes; shields absorb one hit', () => {
+test('touching a wake shatters a racer; shields absorb one hit', () => {
   const race = makeRace('race', ['phaseshield']);
   race.countdown = 0;
   const [p, victim] = race.racers;
@@ -165,10 +165,35 @@ test('touching a light wall derezzes; shields absorb one hit', () => {
     race.updateRacer(victim, STEP);
   }
   assert.equal(victim.alive, false);
-  assert.equal(p.derezzes, 1);
+  assert.equal(p.takedowns, 1);
 
   // Emergency shield + Phase Shield.
   assert.equal(p.shields, 2);
   assert.equal(race.crash(p, 'trail', 1), false);
   assert.equal(p.shields, 1);
+});
+
+test('Zaps: friendly wakes, excluded from placing, never targeted by your abilities', () => {
+  const race = makeRace('boss', [], 'ALLY1', true);
+  const { player, ally } = race;
+  assert.ok(ally && ally.isAlly);
+  assert.equal(race.racers.length, 6);
+  const rival = race.racers.find((r) => !r.isPlayer && !r.isAlly);
+  assert.equal(race.ignoresSeg(player, ally.index, 0, 0), true);
+  assert.equal(race.ignoresSeg(ally, player.index, 0, 0), true);
+  assert.equal(race.ignoresSeg(rival, ally.index, 0, 0), false);
+  assert.equal(race.rankedRacers().includes(ally), false);
+  simulate(race, 240);
+  assert.equal(race.over, true);
+  const allyRow = race.result.standings.find((s) => s.isAlly);
+  assert.equal(allyRow.place, 0);
+  const places = race.result.standings.filter((s) => !s.isAlly).map((s) => s.place).sort();
+  assert.deepEqual(places, [1, 2, 3, 4, 5]);
+});
+
+test('every boss node brings Zaps; the first anomaly is the lamp story', () => {
+  const run = new Run({ seed: 'LORE', chassisId: 'glint' });
+  for (const map of run.maps) assert.equal(map.at(-1)[0].ally, true);
+  assert.equal(run.rollEvent().id, 'lamp');
+  assert.notEqual(run.rollEvent().id, 'lamp');
 });
