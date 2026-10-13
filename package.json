@@ -1,0 +1,12 @@
+{
+  "name": "nyoomies",
+  "version": "0.1.0",
+  "description": "Neon roguelike light-cycle racer",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node scripts/serve.js",
+    "test": "node --test tests/*.test.js",
+    "sim": "node scripts/sim.js"
+  }
+}
