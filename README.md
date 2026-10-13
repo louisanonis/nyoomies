@@ -1,6 +1,6 @@
 # Nyoomies
 
-A roguelike light-cycle racer for the browser. Think Tron light cycles crossed with Star Wars pod racing: you race on a neon grid against AI rivals, and every racer leaves a **lethal light wall** behind it. Each run is a fresh, seeded climb through three sectors. You draft upgrades, trade at the Black Market, risk strange anomalies and race sector bosses. Your hull carries over between races.
+A roguelike light-cycle racer for the browser. Think futuristic racing: you race on a neon grid against AI rivals, and every racer leaves a **lethal light wall** behind it. Each run is a fresh, seeded climb through three sectors. You draft upgrades, trade at the Black Market, risk strange anomalies and race sector bosses. Your hull carries over between races.
 
 There's no build step and there are no dependencies: plain JavaScript modules and Canvas 2D.
 
